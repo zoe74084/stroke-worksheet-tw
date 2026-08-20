@@ -726,7 +726,7 @@ async function generate() {
   const dedupe = document.getElementById('dedupe').checked;
   const rawChars = raw.match(/[一-鿿]/g) || [];
   const chars = dedupe ? [...new Set(rawChars)] : rawChars;
-  document.title = chars.length ? chars.join('') + '筆順練習字帖' : '國字筆順練習字帖產生器';
+  document.title = chars.length ? `台灣標準國字筆順字帖_${chars.join('')}` : '台灣標準國字筆順字帖';
   const exampleRows = Math.max(1, parseInt(document.getElementById('exampleRows').value) || 3);
   const practiceRows = Math.max(0, parseInt(document.getElementById('practiceRows').value) || 6);
   const cellSize = parseInt(document.getElementById('cellSize').value) || 100;
