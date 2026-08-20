@@ -22,9 +22,11 @@
 ## 專案內容
 
 - `index.html`：字帖操作介面與列印版面。
+- `assets/social-preview.jpg`：LINE、Facebook 等平台的網址分享預覽圖。
+- `favicon.svg`：瀏覽器分頁圖示。
 - `fonts/`：注音字型及其原始授權文件。
 - `THIRD_PARTY_NOTICES.md`：資料來源與第三方授權摘要。
-- `.nojekyll`：讓 GitHub Pages 直接发布資料夾內容。
+- `.nojekyll`：讓 GitHub Pages 直接發布資料夾內容。
 
 ## 已驗證
 
