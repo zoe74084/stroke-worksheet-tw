@@ -47,11 +47,20 @@
     padding:24px 28px; margin-bottom:24px; max-width: none;
   }
   .row { display:flex; flex-wrap:wrap; gap:22px 32px; margin-top:14px; align-items:flex-start;}
-  .option-group { display:flex; flex-direction:column; gap:10px; }
+  .option-group {
+    display:flex; flex-direction:column; gap:10px;
+    background:#f8f9fb; border:1px solid #e8e9ec; border-radius:8px; padding:14px 16px;
+  }
   .option-group-title {
     font-size:12px; font-weight:bold; color:#8a8f98; text-transform:uppercase; letter-spacing:.04em;
   }
   .option-group-body { display:flex; flex-wrap:wrap; gap:12px 20px; align-items:center; }
+  .sub-field {
+    margin:-4px 0 0 25px; max-width:calc(100% - 25px);
+  }
+  .sub-field input, .sub-field textarea { width:100%; font-size:14px; padding:7px; }
+  .sub-field textarea { min-height:40px; }
+  .sub-field input:disabled, .sub-field textarea:disabled { background:#f0f0f0; color:#999; }
   .row-actions { display:flex; gap:12px; align-items:center; margin-left:auto; }
   select#guideStyle { padding:7px 8px; font-size:16px; border:1px solid #ccc; border-radius:6px; }
   label { display:block; font-size:15px; color:#444; margin-bottom:6px; }
@@ -265,29 +274,21 @@
           <div class="field"><input type="checkbox" id="dedupe"><label for="dedupe" style="margin:0">去除重複字</label></div>
         </div>
       </div>
-      <div class="option-group">
+      <div class="option-group" style="flex:2; min-width:300px;">
         <div class="option-group-title">頁首（列印顯示）</div>
+        <div class="field"><input type="checkbox" id="showTitle"><label for="showTitle" style="margin:0">標題</label></div>
+        <div class="sub-field"><input type="text" id="titleText" placeholder="例如：國字筆順練習" disabled></div>
         <div class="option-group-body">
-          <div class="field"><input type="checkbox" id="showTitle"><label for="showTitle" style="margin:0">標題</label></div>
           <div class="field"><input type="checkbox" id="showClass"><label for="showClass" style="margin:0">班級</label></div>
           <div class="field"><input type="checkbox" id="showSeat"><label for="showSeat" style="margin:0">座號</label></div>
           <div class="field"><input type="checkbox" id="showName"><label for="showName" style="margin:0">姓名</label></div>
-          <div class="field"><input type="checkbox" id="showInstructions"><label for="showInstructions" style="margin:0">作業說明</label></div>
         </div>
+        <div class="field"><input type="checkbox" id="showInstructions"><label for="showInstructions" style="margin:0">作業說明</label></div>
+        <div class="sub-field"><textarea id="instructionsText" placeholder="例如：請依筆順練習，每個字至少寫三遍" disabled></textarea></div>
       </div>
       <div class="row-actions">
         <button onclick="generate()">產生字帖</button>
         <button class="secondary" onclick="window.print()">列印</button>
-      </div>
-    </div>
-    <div class="row">
-      <div class="field" style="flex-direction:column; align-items:stretch; min-width:220px;">
-        <label>標題文字</label>
-        <input type="text" id="titleText" placeholder="例如：國字筆順練習">
-      </div>
-      <div class="field" style="flex-direction:column; align-items:stretch; flex:1; min-width:280px;">
-        <label>作業說明內容</label>
-        <textarea id="instructionsText" placeholder="例如：請依筆順練習，每個字至少寫三遍" style="min-height:40px; font-size:15px; padding:7px; border:1px solid #ccc; border-radius:6px; resize:vertical;"></textarea>
       </div>
     </div>
     <div id="pronunciationPanel" class="pronunciation-panel"></div>
@@ -849,6 +850,16 @@ async function generate() {
 
   sheet.innerHTML = html || '<div class="no-print" style="padding:20px;color:#888;">請輸入國字</div>';
 }
+
+function syncFieldEnabled(checkboxId, fieldId) {
+  const checkbox = document.getElementById(checkboxId);
+  const field = document.getElementById(fieldId);
+  const apply = () => { field.disabled = !checkbox.checked; };
+  checkbox.addEventListener('change', apply);
+  apply();
+}
+syncFieldEnabled('showTitle', 'titleText');
+syncFieldEnabled('showInstructions', 'instructionsText');
 
 generate();
 </script>
