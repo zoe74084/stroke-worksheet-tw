@@ -12,7 +12,7 @@
 
 ## 萌典與教育部辭典資料
 
-- 用途：注音、部首與辭典筆畫數。
+- 用途：注音與部首。
 - API：https://www.moedict.tw/uni/
 - 資料來源說明：https://www.moedict.tw/about.html
 - 萌典程式碼由原作者以 CC0 1.0 釋出；辭典本文與國語發音資料著作權仍屬教育部，標示為 CC BY-ND 3.0 TW。

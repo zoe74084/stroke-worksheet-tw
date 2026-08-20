@@ -79,11 +79,6 @@
     min-width:0; padding:6px 8px; border:1px solid #bbb; border-radius:5px;
     font-size:16px;
   }
-  .stroke-count-choice {
-    display:flex; align-items:center; gap:6px; margin:0 0 0 6px;
-    color:#555; font-size:14px;
-  }
-
   #sheet {
     background:#fff; padding:20px; max-width: none;
   }
@@ -226,13 +221,12 @@
         <li>輸入要練習的國字，設定範例列、練習列和格子大小。</li>
         <li>勾選需要的筆順數字、方向線、注音、部首或筆畫數。</li>
         <li>多音字請確認讀音；姓名或特殊讀音可自行輸入。</li>
-        <li>筆畫數資料不同時，可在「資料選擇」中決定要顯示的來源。</li>
         <li>按「產生字帖」預覽，完成後按「列印」。</li>
       </ol>
       <div class="source-note">
         <strong>資料來源：</strong>
         筆順來自<a href="https://stroke-order.learningweb.moe.edu.tw/index.jsp" target="_blank" rel="noopener">教育部《國字標準字體筆順學習網》</a>；
-        注音、部首與辭典筆畫數來自<a href="https://www.moedict.tw/about.html" target="_blank" rel="noopener">萌典</a>；
+        注音與部首來自<a href="https://www.moedict.tw/about.html" target="_blank" rel="noopener">萌典</a>；
         注音符號使用<a href="https://github.com/ButTaiwan/bpmfvs" target="_blank" rel="noopener">ButTaiwan GenyoMinBopomofo</a>（Apache 2.0）。
         本工具為非商業用途，並依資料來源所標示的創用 CC 授權規範使用；本工具並非教育部或萌典官方產品，如有差異，以官方資料為準。
       </div>
@@ -253,7 +247,6 @@ const cache = {};
 const infoCache = {};
 const selectedBopomofo = {};
 const customBopomofo = {};
-const selectedStrokeCount = {};
 let generationId = 0;
 
 // 部首在字裡實際出現時常見的簡省寫法（給旁邊資訊欄用，貼近字形本身）
@@ -339,12 +332,11 @@ async function loadInfo(char) {
     const data = await res.json();
     const bopomofos = [...new Set((data.heteronyms || []).map(item => item.bopomofo).filter(Boolean))];
     const radical = data.radical ? (RADICAL_VARIANTS[data.radical] || data.radical) : '';
-    const officialCount = typeof data.stroke_count === 'number' ? data.stroke_count : null;
-    const info = { bopomofos, radical, officialCount };
+    const info = { bopomofos, radical };
     infoCache[char] = info;
     return info;
   } catch (e) {
-    infoCache[char] = { bopomofos: [], radical: '', officialCount: null };
+    infoCache[char] = { bopomofos: [], radical: '' };
     return infoCache[char];
   }
 }
@@ -441,23 +433,15 @@ function bopomofoHtml(value) {
   return `<span class="zhuyin-stack${hasSideTone ? ' has-side-tone' : ''}">${symbolHtml}${toneHtml}</span>`;
 }
 
-function renderDataControls(chars, infoByChar, dataByChar, showZhuyin, showCount) {
+function renderPronunciationControls(chars, infoByChar, enabled) {
   const panel = document.getElementById('pronunciationPanel');
-  const hasCountChoice = showCount && chars.some(char => {
-    const drawnCount = dataByChar[char]?.strokes?.length;
-    const officialCount = infoByChar[char]?.officialCount;
-    return drawnCount != null && officialCount != null && drawnCount !== officialCount;
-  });
-  const enabled = showZhuyin || hasCountChoice;
   panel.innerHTML = '';
   panel.classList.toggle('visible', enabled && chars.length > 0);
   if (!enabled || !chars.length) return;
 
   const title = document.createElement('div');
   title.className = 'pronunciation-title';
-  title.textContent = hasCountChoice
-    ? '資料選擇（多音字與筆畫數不同時可在這裡調整）'
-    : '注音選擇（多音字請確認；姓名讀音可在右側自訂）';
+  title.textContent = '注音選擇（多音字請確認；姓名讀音可在右側自訂）';
   panel.appendChild(title);
   const list = document.createElement('div');
   list.className = 'pronunciation-list';
@@ -465,10 +449,6 @@ function renderDataControls(chars, infoByChar, dataByChar, showZhuyin, showCount
   chars.forEach(char => {
     const info = infoByChar[char] || { bopomofos: [] };
     const readings = info.bopomofos || [];
-    const drawnCount = dataByChar[char]?.strokes?.length;
-    const officialCount = info.officialCount;
-    const countDiffers = showCount && drawnCount != null && officialCount != null && drawnCount !== officialCount;
-    if (!showZhuyin && !countDiffers) return;
     if (!selectedBopomofo[char] && readings[0]) selectedBopomofo[char] = readings[0];
 
     const row = document.createElement('div');
@@ -478,7 +458,7 @@ function renderDataControls(chars, infoByChar, dataByChar, showZhuyin, showCount
     charLabel.textContent = char;
     row.appendChild(charLabel);
 
-    if (showZhuyin && readings.length > 1) {
+    if (readings.length > 1) {
       const select = document.createElement('select');
       readings.forEach(reading => {
         const option = document.createElement('option');
@@ -492,48 +472,21 @@ function renderDataControls(chars, infoByChar, dataByChar, showZhuyin, showCount
         generate();
       });
       row.appendChild(select);
-    } else if (showZhuyin) {
+    } else {
       const reading = document.createElement('span');
       reading.textContent = readings[0] || '查無注音';
       row.appendChild(reading);
     }
 
-    if (showZhuyin) {
-      const custom = document.createElement('input');
-      custom.type = 'text';
-      custom.placeholder = '自訂注音';
-      custom.value = customBopomofo[char] || '';
-      custom.addEventListener('change', () => {
-        customBopomofo[char] = custom.value;
-        generate();
-      });
-      row.appendChild(custom);
-    }
-
-    if (countDiffers) {
-      if (selectedStrokeCount[char] == null) selectedStrokeCount[char] = drawnCount;
-      const label = document.createElement('label');
-      label.className = 'stroke-count-choice';
-      label.append('筆畫數顯示');
-      const select = document.createElement('select');
-      select.setAttribute('aria-label', `${char}的筆畫數顯示`);
-      [
-        { value: drawnCount, text: `${drawnCount}（教育部筆順）` },
-        { value: officialCount, text: `${officialCount}（萌典）` }
-      ].forEach(choice => {
-        const option = document.createElement('option');
-        option.value = String(choice.value);
-        option.textContent = choice.text;
-        option.selected = choice.value === selectedStrokeCount[char];
-        select.appendChild(option);
-      });
-      select.addEventListener('change', () => {
-        selectedStrokeCount[char] = Number(select.value);
-        generate();
-      });
-      label.appendChild(select);
-      row.appendChild(label);
-    }
+    const custom = document.createElement('input');
+    custom.type = 'text';
+    custom.placeholder = '自訂注音';
+    custom.value = customBopomofo[char] || '';
+    custom.addEventListener('change', () => {
+      customBopomofo[char] = custom.value;
+      generate();
+    });
+    row.appendChild(custom);
     list.appendChild(row);
   });
   panel.appendChild(list);
@@ -576,7 +529,7 @@ async function generate() {
     dataByChar[c] = strokeResults[i];
     infoByChar[c] = infos[i];
   });
-  renderDataControls(uniqueChars, infoByChar, dataByChar, showZhuyin, showCount);
+  renderPronunciationControls(uniqueChars, infoByChar, showZhuyin);
 
   const totalRows = exampleRows + practiceRows;
   let html = '';
@@ -587,12 +540,10 @@ async function generate() {
     html += `<div class="block" style="grid-template-columns:${columns}; grid-template-rows:repeat(${totalRows}, var(--cell));">`;
 
     const drawnCount = data ? data.strokes.length : null;
-    const info = infoByChar[char] || { bopomofos:[], radical:'', officialCount:null };
-    const { radical, officialCount } = info;
+    const info = infoByChar[char] || { bopomofos:[], radical:'' };
+    const { radical } = info;
     const bopomofo = getBopomofo(char, info);
-    const displayCount = selectedStrokeCount[char] != null
-      ? selectedStrokeCount[char]
-      : (drawnCount != null ? drawnCount : (officialCount != null ? officialCount : '-'));
+    const displayCount = drawnCount != null ? drawnCount : '-';
     const infoCell = (row, isExample) => {
       if (!hasInfoColumn) return '';
       const blankClass = isExample ? '' : ' blank';
