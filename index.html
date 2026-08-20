@@ -46,7 +46,14 @@
     background:#fff; border:1px solid #ddd; border-radius:10px;
     padding:24px 28px; margin-bottom:24px; max-width: none;
   }
-  .row { display:flex; flex-wrap:wrap; gap:22px; margin-top:14px; align-items:flex-end;}
+  .row { display:flex; flex-wrap:wrap; gap:22px 32px; margin-top:14px; align-items:flex-start;}
+  .option-group { display:flex; flex-direction:column; gap:10px; }
+  .option-group-title {
+    font-size:12px; font-weight:bold; color:#8a8f98; text-transform:uppercase; letter-spacing:.04em;
+  }
+  .option-group-body { display:flex; flex-wrap:wrap; gap:12px 20px; align-items:center; }
+  .row-actions { display:flex; gap:12px; align-items:center; margin-left:auto; }
+  select#guideStyle { padding:7px 8px; font-size:16px; border:1px solid #ccc; border-radius:6px; }
   label { display:block; font-size:15px; color:#444; margin-bottom:6px; }
   textarea {
     width:100%; min-height:72px; font-size:24px; padding:10px;
@@ -208,20 +215,47 @@
     <label>請輸入要練習的國字（會自動去除非中文字，重複字預設保留，適合練習姓名）</label>
     <textarea id="charsInput" placeholder="例如：王大明">王大明</textarea>
     <div class="row">
-      <div class="field"><label>範例列數</label><input type="number" id="exampleRows" value="3" min="1" max="6"></div>
-      <div class="field"><label>練習列數</label><input type="number" id="practiceRows" value="6" min="1" max="20"></div>
-      <div class="field"><label>格子大小(px)</label><input type="number" id="cellSize" value="100" min="60" max="180"></div>
-      <div class="field"><input type="checkbox" id="showNumbers" checked><label for="showNumbers" style="margin:0">顯示筆順數字</label></div>
-      <div class="field"><input type="checkbox" id="showArrows" checked><label for="showArrows" style="margin:0">顯示方向虛線</label></div>
-      <div class="field"><input type="checkbox" id="showZhuyin" checked><label for="showZhuyin" style="margin:0">注音＋練習框</label></div>
-      <div class="field"><input type="checkbox" id="showRadical" checked><label for="showRadical" style="margin:0">部首＋練習框</label></div>
-      <div class="field"><input type="checkbox" id="showCount" checked><label for="showCount" style="margin:0">筆畫數＋練習框</label></div>
-      <div class="field"><input type="checkbox" id="showTrace"><label for="showTrace" style="margin:0">練習格顯示淡字</label></div>
-      <div class="field"><input type="checkbox" id="showCrosshair" checked><label for="showCrosshair" style="margin:0">顯示十字線</label></div>
-      <div class="field"><input type="checkbox" id="dashedGrid"><label for="dashedGrid" style="margin:0">虛線田字格</label></div>
-      <div class="field"><input type="checkbox" id="dedupe"><label for="dedupe" style="margin:0">去除重複字</label></div>
-      <button onclick="generate()">產生字帖</button>
-      <button class="secondary" onclick="window.print()">列印</button>
+      <div class="option-group">
+        <div class="option-group-title">版面</div>
+        <div class="option-group-body">
+          <div class="field"><label>範例列數</label><input type="number" id="exampleRows" value="3" min="1" max="6"></div>
+          <div class="field"><label>練習列數</label><input type="number" id="practiceRows" value="6" min="1" max="20"></div>
+          <div class="field"><label>格子大小(px)</label><input type="number" id="cellSize" value="100" min="60" max="180"></div>
+        </div>
+      </div>
+      <div class="option-group">
+        <div class="option-group-title">筆順提示</div>
+        <div class="option-group-body">
+          <div class="field"><input type="checkbox" id="showNumbers" checked><label for="showNumbers" style="margin:0">顯示筆順數字</label></div>
+          <div class="field"><input type="checkbox" id="showArrows" checked><label for="showArrows" style="margin:0">顯示筆順箭頭</label></div>
+        </div>
+      </div>
+      <div class="option-group">
+        <div class="option-group-title">顯示欄位</div>
+        <div class="option-group-body">
+          <div class="field"><input type="checkbox" id="showZhuyin" checked><label for="showZhuyin" style="margin:0">顯示注音</label></div>
+          <div class="field"><input type="checkbox" id="showRadical" checked><label for="showRadical" style="margin:0">顯示部首</label></div>
+          <div class="field"><input type="checkbox" id="showCount" checked><label for="showCount" style="margin:0">顯示筆畫數</label></div>
+        </div>
+      </div>
+      <div class="option-group">
+        <div class="option-group-title">練習格</div>
+        <div class="option-group-body">
+          <div class="field"><label>格線樣式</label>
+            <select id="guideStyle">
+              <option value="solid" selected>實線</option>
+              <option value="dashed">虛線</option>
+              <option value="none">無</option>
+            </select>
+          </div>
+          <div class="field"><input type="checkbox" id="showTrace"><label for="showTrace" style="margin:0">顯示淡字描寫</label></div>
+          <div class="field"><input type="checkbox" id="dedupe"><label for="dedupe" style="margin:0">去除重複字</label></div>
+        </div>
+      </div>
+      <div class="row-actions">
+        <button onclick="generate()">產生字帖</button>
+        <button class="secondary" onclick="window.print()">列印</button>
+      </div>
     </div>
     <div id="pronunciationPanel" class="pronunciation-panel"></div>
     <div class="note">
@@ -649,8 +683,7 @@ async function generate() {
   const showRadical = document.getElementById('showRadical').checked;
   const showCount = document.getElementById('showCount').checked;
   const showTrace = document.getElementById('showTrace').checked;
-  const showCrosshair = document.getElementById('showCrosshair').checked;
-  const dashed = document.getElementById('dashedGrid').checked;
+  const guideStyle = document.getElementById('guideStyle').value;
   const hasInfoColumn = showZhuyin || showRadical || showCount;
 
   document.documentElement.style.setProperty('--cell', cellSize + 'px');
@@ -690,7 +723,7 @@ async function generate() {
 
   function renderCell(char, data, info, r, localRow) {
     const isExample = r < exampleRows;
-    const cellClass = !showCrosshair ? 'cell no-guide' : (dashed ? 'cell dashed' : 'cell');
+    const cellClass = guideStyle === 'none' ? 'cell no-guide' : (guideStyle === 'dashed' ? 'cell dashed' : 'cell');
     let cell;
     if (isExample && data) {
       cell = `<div class="${cellClass}" style="grid-column:1; grid-row:${localRow};">${charSvg(data, showNumbers, showArrows)}</div>`;
