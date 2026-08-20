@@ -178,7 +178,6 @@
   .info-radical { font-size: calc(var(--cell) * 0.19); color:#333; }
   .info-count { font-size: calc(var(--cell) * 0.155); color:#c0392b; font-weight:bold; position:relative; }
   .info.blank .info-item { color:transparent; }
-  .missing { display:flex; align-items:center; justify-content:center; font-size:11px; color:#c0392b; text-align:center; padding:4px;}
   .site-footer {
     margin:28px 0 8px; text-align:center; color:#666; font-size:14px;
   }
@@ -809,8 +808,6 @@ async function generate() {
     let cell;
     if (isExample && data) {
       cell = `<div class="${cellClass}" style="grid-column:1; grid-row:${localRow};">${charSvg(data, showNumbers, showArrows)}</div>`;
-    } else if (isExample && !data) {
-      cell = `<div class="${cellClass}" style="grid-column:1; grid-row:${localRow};"><div class="missing">找不到「${char}」的筆順資料</div></div>`;
     } else if (data && (r - exampleRows) < traceRows) {
       cell = `<div class="${cellClass}" style="grid-column:1; grid-row:${localRow};">${traceSvg(data)}</div>`;
     } else {
