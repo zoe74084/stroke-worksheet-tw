@@ -136,12 +136,15 @@
   .cell.no-guide { background:none; }
   .cell svg { width:100%; height:100%; position:absolute; top:0; left:0; }
   .cell svg.trace-character { pointer-events:none; }
-  .fallback-char {
+  .fallback-char, .fallback-trace {
     width:100%; height:100%; display:flex; align-items:center; justify-content:center;
     font-family:'DFKai-SB','BiauKai','STKaiti','KaiTi','Kaiti TC',serif;
-    font-size:calc(var(--cell) * 0.72); line-height:1;
-    color:#eee; -webkit-text-stroke:2px #333; text-stroke:2px #333;
+    font-size:calc(var(--cell) * 0.85); line-height:1;
   }
+  .fallback-char {
+    color:transparent; -webkit-text-stroke:2px #111; text-stroke:2px #111;
+  }
+  .fallback-trace { color:#e5e5e5; opacity:.58; pointer-events:none; }
   .info {
     width: var(--info);
     border: 1px solid #333;
@@ -816,8 +819,9 @@ async function generate() {
       cell = `<div class="${cellClass}" style="grid-column:1; grid-row:${localRow};">${charSvg(data, showNumbers, showArrows)}</div>`;
     } else if (isExample && !data) {
       cell = `<div class="${cellClass}" style="grid-column:1; grid-row:${localRow};"><div class="fallback-char">${escapeHtml(char)}</div></div>`;
-    } else if (data && (r - exampleRows) < traceRows) {
-      cell = `<div class="${cellClass}" style="grid-column:1; grid-row:${localRow};">${traceSvg(data)}</div>`;
+    } else if ((r - exampleRows) < traceRows) {
+      const trace = data ? traceSvg(data) : `<div class="fallback-trace">${escapeHtml(char)}</div>`;
+      cell = `<div class="${cellClass}" style="grid-column:1; grid-row:${localRow};">${trace}</div>`;
     } else {
       cell = `<div class="${cellClass}" style="grid-column:1; grid-row:${localRow};"></div>`;
     }
