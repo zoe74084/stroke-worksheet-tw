@@ -92,6 +92,15 @@
   #sheet {
     background:#fff; padding:20px; max-width: none;
   }
+  .sheet-header { margin-bottom:16px; }
+  .sheet-title { font-size:22px; font-weight:bold; margin-bottom:10px; }
+  .sheet-fields { display:flex; flex-wrap:wrap; gap:10px 28px; font-size:16px; margin-bottom:10px; }
+  .sheet-field { display:inline-flex; align-items:baseline; gap:4px; }
+  .sheet-field .fill-line { display:inline-block; width:110px; border-bottom:1px solid #333; height:1em; }
+  .sheet-instructions {
+    font-size:14px; color:#333; border:1px solid #ccc; border-radius:6px;
+    padding:8px 10px; white-space:pre-wrap;
+  }
   .block {
     display:inline-grid;
     grid-auto-flow: row;
@@ -195,6 +204,10 @@
     }
     .info-item { border-bottom:.45pt solid #555; }
     .info-item:last-child { border-bottom:0; }
+    .sheet-header {
+      break-inside:avoid;
+      page-break-inside:avoid;
+    }
     .sheet-page {
       break-inside:avoid;
       page-break-inside:avoid;
@@ -252,9 +265,29 @@
           <div class="field"><input type="checkbox" id="dedupe"><label for="dedupe" style="margin:0">去除重複字</label></div>
         </div>
       </div>
+      <div class="option-group">
+        <div class="option-group-title">頁首（列印顯示）</div>
+        <div class="option-group-body">
+          <div class="field"><input type="checkbox" id="showTitle"><label for="showTitle" style="margin:0">標題</label></div>
+          <div class="field"><input type="checkbox" id="showClass"><label for="showClass" style="margin:0">班級</label></div>
+          <div class="field"><input type="checkbox" id="showSeat"><label for="showSeat" style="margin:0">座號</label></div>
+          <div class="field"><input type="checkbox" id="showName"><label for="showName" style="margin:0">姓名</label></div>
+          <div class="field"><input type="checkbox" id="showInstructions"><label for="showInstructions" style="margin:0">作業說明</label></div>
+        </div>
+      </div>
       <div class="row-actions">
         <button onclick="generate()">產生字帖</button>
         <button class="secondary" onclick="window.print()">列印</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field" style="flex-direction:column; align-items:stretch; min-width:220px;">
+        <label>標題文字</label>
+        <input type="text" id="titleText" placeholder="例如：國字筆順練習">
+      </div>
+      <div class="field" style="flex-direction:column; align-items:stretch; flex:1; min-width:280px;">
+        <label>作業說明內容</label>
+        <textarea id="instructionsText" placeholder="例如：請依筆順練習，每個字至少寫三遍" style="min-height:40px; font-size:15px; padding:7px; border:1px solid #ccc; border-radius:6px; resize:vertical;"></textarea>
       </div>
     </div>
     <div id="pronunciationPanel" class="pronunciation-panel"></div>
@@ -592,6 +625,26 @@ function escapeHtml(value) {
   })[char]);
 }
 
+function buildHeaderHtml({ showTitle, titleText, showClass, showSeat, showName, showInstructions, instructionsText }) {
+  const parts = [];
+  if (showTitle && titleText.trim()) {
+    parts.push(`<div class="sheet-title">${escapeHtml(titleText.trim())}</div>`);
+  }
+  if (showClass || showSeat || showName) {
+    const fields = [
+      showClass ? `<span class="sheet-field">班級：<span class="fill-line"></span></span>` : '',
+      showSeat ? `<span class="sheet-field">座號：<span class="fill-line"></span></span>` : '',
+      showName ? `<span class="sheet-field">姓名：<span class="fill-line"></span></span>` : ''
+    ].join('');
+    parts.push(`<div class="sheet-fields">${fields}</div>`);
+  }
+  if (showInstructions && instructionsText.trim()) {
+    parts.push(`<div class="sheet-instructions">${escapeHtml(instructionsText.trim())}</div>`);
+  }
+  if (!parts.length) return '';
+  return `<div class="sheet-header">${parts.join('')}</div>`;
+}
+
 function bopomofoHtml(value) {
   const text = String(value || '').trim();
   if (!text) return '—';
@@ -684,6 +737,13 @@ async function generate() {
   const showCount = document.getElementById('showCount').checked;
   const showTrace = document.getElementById('showTrace').checked;
   const guideStyle = document.getElementById('guideStyle').value;
+  const showTitle = document.getElementById('showTitle').checked;
+  const titleText = document.getElementById('titleText').value;
+  const showClass = document.getElementById('showClass').checked;
+  const showSeat = document.getElementById('showSeat').checked;
+  const showName = document.getElementById('showName').checked;
+  const showInstructions = document.getElementById('showInstructions').checked;
+  const instructionsText = document.getElementById('instructionsText').value;
   const hasInfoColumn = showZhuyin || showRadical || showCount;
 
   document.documentElement.style.setProperty('--cell', cellSize + 'px');
@@ -710,15 +770,33 @@ async function generate() {
   const totalRows = exampleRows + practiceRows;
   const columns = hasInfoColumn ? 'var(--cell) var(--info)' : 'var(--cell)';
 
+  const headerHtml = chars.length ? buildHeaderHtml({
+    showTitle, titleText, showClass, showSeat, showName, showInstructions, instructionsText
+  }) : '';
+
+  // Measure the header's rendered height so the first page's row budget
+  // below can be reduced by it — otherwise a tall header could push the
+  // first chunk past the page and trigger the same cut-mid-row problem
+  // the pagination below exists to avoid.
+  let headerHeightPx = 0;
+  if (headerHtml) {
+    sheet.innerHTML = headerHtml;
+    headerHeightPx = sheet.querySelector('.sheet-header')?.getBoundingClientRect().height || 0;
+  }
+
   // A4 minus @page margins (8mm*2) minus #sheet's print padding (1.5mm*2);
   // caps each block's height so it always fits one printed page instead of
   // being cut mid-row by the browser (CSS grid doesn't paginate reliably).
   const usableHeightPx = (297 - 8 * 2 - 1.5 * 2) * (96 / 25.4);
   const maxRowsPerPage = Math.max(1, Math.floor(usableHeightPx / cellSize));
+  const firstPageMaxRows = Math.max(1, Math.floor((usableHeightPx - headerHeightPx) / cellSize));
 
   const rowChunks = [];
-  for (let start = 0; start < totalRows; start += maxRowsPerPage) {
-    rowChunks.push([start, Math.min(start + maxRowsPerPage, totalRows)]);
+  for (let start = 0; start < totalRows;) {
+    const cap = rowChunks.length === 0 ? firstPageMaxRows : maxRowsPerPage;
+    const end = Math.min(start + cap, totalRows);
+    rowChunks.push([start, end]);
+    start = end;
   }
 
   function renderCell(char, data, info, r, localRow) {
@@ -750,7 +828,7 @@ async function generate() {
     return cell + `<div class="info${blankClass}" style="grid-column:2;grid-row:${localRow};">${items}</div>`;
   }
 
-  let html = '';
+  let html = headerHtml;
   if (chars.length) {
     rowChunks.forEach(([start, end], chunkIndex) => {
       const chunkRows = end - start;
