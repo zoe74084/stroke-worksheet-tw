@@ -261,7 +261,7 @@
               <option value="none">無</option>
             </select>
           </div>
-          <div class="field"><input type="checkbox" id="showTrace"><label for="showTrace" style="margin:0">顯示淡字描寫</label></div>
+          <div class="field"><label>淡字描寫列數</label><input type="number" id="traceRows" value="0" min="0" max="20"></div>
           <div class="field"><input type="checkbox" id="dedupe"><label for="dedupe" style="margin:0">去除重複字</label></div>
         </div>
       </div>
@@ -735,7 +735,7 @@ async function generate() {
   const showZhuyin = document.getElementById('showZhuyin').checked;
   const showRadical = document.getElementById('showRadical').checked;
   const showCount = document.getElementById('showCount').checked;
-  const showTrace = document.getElementById('showTrace').checked;
+  const traceRows = Math.max(0, parseInt(document.getElementById('traceRows').value) || 0);
   const guideStyle = document.getElementById('guideStyle').value;
   const showTitle = document.getElementById('showTitle').checked;
   const titleText = document.getElementById('titleText').value;
@@ -809,7 +809,7 @@ async function generate() {
       cell = `<div class="${cellClass}" style="grid-column:1; grid-row:${localRow};">${charSvg(data, showNumbers, showArrows)}</div>`;
     } else if (isExample && !data) {
       cell = `<div class="${cellClass}" style="grid-column:1; grid-row:${localRow};"><div class="missing">找不到「${char}」的筆順資料</div></div>`;
-    } else if (data && showTrace) {
+    } else if (data && (r - exampleRows) < traceRows) {
       cell = `<div class="${cellClass}" style="grid-column:1; grid-row:${localRow};">${traceSvg(data)}</div>`;
     } else {
       cell = `<div class="${cellClass}" style="grid-column:1; grid-row:${localRow};"></div>`;
