@@ -88,6 +88,9 @@
     margin: 0 10px 10px 0;
     vertical-align:top;
   }
+  .sheet-page + .sheet-page {
+    margin-top:24px; padding-top:24px; border-top:2px dashed #ccc;
+  }
   .cell {
     width: var(--cell); height: var(--cell);
     border: 1px solid #333;
@@ -147,14 +150,6 @@
   .info-count { font-size: calc(var(--cell) * 0.155); color:#c0392b; font-weight:bold; position:relative; }
   .info.blank .info-item { color:transparent; }
   .missing { display:flex; align-items:center; justify-content:center; font-size:11px; color:#c0392b; text-align:center; padding:4px;}
-  .launch-warning {
-    max-width:760px; margin:24px auto; padding:22px 24px; border:2px solid #d97706;
-    border-radius:10px; background:#fff8e8; color:#7c3f00; font-size:18px; line-height:1.7;
-  }
-  .launch-warning a {
-    display:inline-block; margin-top:10px; padding:9px 16px; border-radius:6px;
-    background:#2d6cdf; color:#fff; text-decoration:none; font-weight:bold;
-  }
   .site-footer {
     margin:28px 0 8px; text-align:center; color:#666; font-size:14px;
   }
@@ -189,6 +184,13 @@
     }
     .info-item { border-bottom:.45pt solid #555; }
     .info-item:last-child { border-bottom:0; }
+    .sheet-page {
+      break-inside:avoid;
+      page-break-inside:avoid;
+    }
+    .sheet-page + .sheet-page {
+      margin-top:0; padding-top:0; border-top:none;
+    }
   }
 </style>
 </head>
@@ -667,45 +669,63 @@ async function generate() {
   renderPronunciationControls(uniqueChars, infoByChar, showZhuyin);
 
   const totalRows = exampleRows + practiceRows;
-  let html = '';
+  const columns = hasInfoColumn ? 'var(--cell) var(--info)' : 'var(--cell)';
 
-  chars.forEach(char => {
-    const data = dataByChar[char];
-    const columns = hasInfoColumn ? 'var(--cell) var(--info)' : 'var(--cell)';
-    html += `<div class="block" style="grid-template-columns:${columns}; grid-template-rows:repeat(${totalRows}, var(--cell));">`;
+  // A4 minus @page margins (8mm*2) minus #sheet's print padding (1.5mm*2);
+  // caps each block's height so it always fits one printed page instead of
+  // being cut mid-row by the browser (CSS grid doesn't paginate reliably).
+  const usableHeightPx = (297 - 8 * 2 - 1.5 * 2) * (96 / 25.4);
+  const maxRowsPerPage = Math.max(1, Math.floor(usableHeightPx / cellSize));
 
-    const drawnCount = data ? data.strokes.length : null;
-    const info = infoByChar[char] || { bopomofos:[], radical:'' };
+  const rowChunks = [];
+  for (let start = 0; start < totalRows; start += maxRowsPerPage) {
+    rowChunks.push([start, Math.min(start + maxRowsPerPage, totalRows)]);
+  }
+
+  function renderCell(char, data, info, r, localRow) {
+    const isExample = r < exampleRows;
+    const cellClass = dashed ? 'cell dashed' : 'cell';
+    let cell;
+    if (isExample && data) {
+      cell = `<div class="${cellClass}" style="grid-column:1; grid-row:${localRow};">${charSvg(data, showNumbers, showArrows)}</div>`;
+    } else if (isExample && !data) {
+      cell = `<div class="${cellClass}" style="grid-column:1; grid-row:${localRow};"><div class="missing">找不到「${char}」的筆順資料</div></div>`;
+    } else if (data && showTrace) {
+      cell = `<div class="${cellClass}" style="grid-column:1; grid-row:${localRow};">${traceSvg(data)}</div>`;
+    } else {
+      cell = `<div class="${cellClass}" style="grid-column:1; grid-row:${localRow};"></div>`;
+    }
+    if (!hasInfoColumn) return cell;
     const { radical } = info;
     const bopomofo = getBopomofo(char, info);
+    const drawnCount = data ? data.strokes.length : null;
     const displayCount = drawnCount != null ? drawnCount : '-';
-    const infoCell = (row, isExample) => {
-      if (!hasInfoColumn) return '';
-      const blankClass = isExample ? '' : ' blank';
-      const items = [
-        showZhuyin ? `<div class="info-item info-bopomofo">${isExample ? bopomofoHtml(bopomofo) : '&nbsp;'}</div>` : '',
-        showRadical ? `<div class="info-item info-radical">${isExample ? (radical || '—') : '&nbsp;'}</div>` : '',
-        showCount ? `<div class="info-item info-count">${isExample ? displayCount : '&nbsp;'}</div>` : ''
-      ].join('');
-      return `<div class="info${blankClass}" style="grid-column:2;grid-row:${row};">${items}</div>`;
-    };
+    const blankClass = isExample ? '' : ' blank';
+    const items = [
+      showZhuyin ? `<div class="info-item info-bopomofo">${isExample ? bopomofoHtml(bopomofo) : '&nbsp;'}</div>` : '',
+      showRadical ? `<div class="info-item info-radical">${isExample ? (radical || '—') : '&nbsp;'}</div>` : '',
+      showCount ? `<div class="info-item info-count">${isExample ? displayCount : '&nbsp;'}</div>` : ''
+    ].join('');
+    return cell + `<div class="info${blankClass}" style="grid-column:2;grid-row:${localRow};">${items}</div>`;
+  }
 
-    for (let r = 0; r < totalRows; r++) {
-      const isExample = r < exampleRows;
-      const cellClass = dashed ? 'cell dashed' : 'cell';
-      if (isExample && data) {
-        html += `<div class="${cellClass}" style="grid-column:1; grid-row:${r+1};">${charSvg(data, showNumbers, showArrows)}</div>`;
-      } else if (isExample && !data) {
-        html += `<div class="${cellClass}" style="grid-column:1; grid-row:${r+1};"><div class="missing">找不到「${char}」的筆順資料</div></div>`;
-      } else if (data && showTrace) {
-        html += `<div class="${cellClass}" style="grid-column:1; grid-row:${r+1};">${traceSvg(data)}</div>`;
-      } else {
-        html += `<div class="${cellClass}" style="grid-column:1; grid-row:${r+1};"></div>`;
-      }
-      html += infoCell(r + 1, isExample);
-    }
-    html += `</div>`;
-  });
+  let html = '';
+  if (chars.length) {
+    rowChunks.forEach(([start, end], chunkIndex) => {
+      const chunkRows = end - start;
+      html += `<div class="sheet-page"${chunkIndex > 0 ? ' style="page-break-before:always;"' : ''}>`;
+      chars.forEach(char => {
+        const data = dataByChar[char];
+        const info = infoByChar[char] || { bopomofos: [], radical: '' };
+        html += `<div class="block" style="grid-template-columns:${columns}; grid-template-rows:repeat(${chunkRows}, var(--cell));">`;
+        for (let r = start; r < end; r++) {
+          html += renderCell(char, data, info, r, r - start + 1);
+        }
+        html += `</div>`;
+      });
+      html += `</div>`;
+    });
+  }
 
   sheet.innerHTML = html || '<div class="no-print" style="padding:20px;color:#888;">請輸入國字</div>';
 }
