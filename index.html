@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>台灣標準國字筆順字帖</title>
+<style>
+  @font-face {
+    font-family:'WorksheetBopomofo';
+    src:url('./fonts/GenyoMinBopomofo-Regular.ttf') format('truetype');
+    font-display:block;
+  }
+  :root{
+    --cell: 100px;
+    --info: 34px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
+    margin: 0;
+    padding: 32px;
+    background: #f4f5f7;
+    color: #222;
+    font-size: 16px;
+  }
+  .page-wrap { max-width: 1320px; margin: 0 auto; }
+  h1 { font-size: 30px; margin: 0 0 8px; }
+  .sub { color:#555; font-size:17px; margin-bottom:24px; }
+  .panel {
+    background:#fff; border:1px solid #ddd; border-radius:10px;
+    padding:24px 28px; margin-bottom:24px; max-width: none;
+  }
+  .row { display:flex; flex-wrap:wrap; gap:22px; margin-top:14px; align-items:flex-end;}
+  label { display:block; font-size:15px; color:#444; margin-bottom:6px; }
+  textarea {
+    width:100%; min-height:72px; font-size:24px; padding:10px;
+    border:1px solid #ccc; border-radius:6px; resize:vertical;
+  }
+  input[type=number] { width:80px; padding:7px; font-size:16px; border:1px solid #ccc; border-radius:6px;}
+  .field { display:flex; align-items:center; gap:8px; font-size:16px; }
+  .field input[type=checkbox] { width:18px; height:18px; }
+  button {
+    background:#2d6cdf; color:#fff; border:none; padding:12px 24px;
+    border-radius:6px; font-size:17px; cursor:pointer;
+  }
+  button.secondary { background:#555; }
+  button:hover { opacity:.9; }
+  .note { font-size:14px; color:#777; margin-top:14px; line-height:1.7;}
+  .note strong { color:#444; }
+  .note ol { margin:5px 0 9px 1.4em; padding:0; }
+  .source-note { border-top:1px solid #ddd; margin-top:10px; padding-top:10px; }
+  .pronunciation-panel {
+    display:none; margin-top:18px; padding:14px 16px; border-radius:8px;
+    border:1px solid #c9d8ef; background:#f5f9ff;
+  }
+  .pronunciation-panel.visible { display:block; }
+  .pronunciation-title { font-weight:bold; margin-bottom:10px; color:#234a7c; }
+  .pronunciation-list { display:flex; flex-wrap:wrap; gap:10px 16px; }
+  .pronunciation-row {
+    display:grid; grid-template-columns:auto minmax(95px, auto) 140px;
+    align-items:center; gap:8px; padding:8px 10px; background:#fff;
+    border:1px solid #d9e4f2; border-radius:7px;
+  }
+  .pronunciation-char { font-size:24px; font-weight:bold; }
+  .pronunciation-row select, .pronunciation-row input {
+    min-width:0; padding:6px 8px; border:1px solid #bbb; border-radius:5px;
+    font-size:16px;
+  }
+
+  #sheet {
+    background:#fff; padding:20px; max-width: none;
+  }
+  .block {
+    display:inline-grid;
+    grid-auto-flow: row;
+    margin: 0 10px 10px 0;
+    vertical-align:top;
+  }
+  .cell {
+    width: var(--cell); height: var(--cell);
+    border: 1px solid #333;
+    margin: -1px 0 0 -1px;
+    position: relative;
+    background:
+      linear-gradient(#bbb,#bbb) center/1px 100% no-repeat,
+      linear-gradient(#bbb,#bbb) center/100% 1px no-repeat;
+  }
+  .cell.dashed {
+    background:
+      repeating-linear-gradient(180deg, transparent 0 6px, #ccc 6px 7px) center/1px 100% no-repeat,
+      repeating-linear-gradient(90deg, transparent 0 6px, #ccc 6px 7px) center/100% 1px no-repeat;
+  }
+  .cell svg { width:100%; height:100%; position:absolute; top:0; left:0; }
+  .info {
+    width: var(--info);
+    border: 1px solid #333;
+    margin: -1px 0 0 -1px;
+    display:flex; flex-direction:column;
+    font-size:11px; color:#333;
+  }
+  .info-item {
+    display:flex; align-items:center; justify-content:center;
+    flex: 1; border-bottom: 1px solid #999;
+  }
+  .info-item:last-child { border-bottom:none; }
+  .info-radical, .info-count {
+    font-family: 'DFKai-SB', 'BiauKai', 'STKaiti', 'KaiTi', 'Kaiti TC', serif;
+  }
+  .info-bopomofo {
+    font-family:'WorksheetBopomofo', 'BiauKai', 'DFKai-SB', 'PingFang TC', serif;
+    color:#222; padding:4px 0;
+    text-align:center;
+    line-height:.9;
+    font-size: calc(var(--cell) * 0.145);
+    overflow: hidden;
+    flex: 4;
+  }
+  .zhuyin-stack {
+    display:inline-flex; flex-direction:column; align-items:center;
+    justify-content:center; position:relative; line-height:.9;
+  }
+  .zhuyin-stack.has-side-tone { transform:translateX(-0.08em); }
+  .zhuyin-symbol { display:block; width:1em; height:.95em; }
+  .zhuyin-tone {
+    position:absolute; left:calc(100% + 0.02em); bottom:0.58em;
+    width:.7em; font-family:'WorksheetBopomofo', 'BiauKai', 'DFKai-SB', 'PingFang TC', serif;
+    font-size:.72em; line-height:1;
+  }
+  .zhuyin-tone.neutral {
+    left:50%; bottom:calc(100% + 0.02em); transform:translateX(-50%);
+    font-size:.62em;
+  }
+  .info-radical { font-size: calc(var(--cell) * 0.19); color:#333; }
+  .info-count { font-size: calc(var(--cell) * 0.155); color:#c0392b; font-weight:bold; position:relative; }
+  .info.blank .info-item { color:transparent; }
+  .info.mismatch { border-color:#e67e22; box-shadow: inset 0 0 0 2px #e67e22; cursor:help; }
+  .warn-mark { font-size: 0.5em; color:#e67e22; margin-left:2px; vertical-align:top; }
+  .missing { display:flex; align-items:center; justify-content:center; font-size:11px; color:#c0392b; text-align:center; padding:4px;}
+  .launch-warning {
+    max-width:760px; margin:24px auto; padding:22px 24px; border:2px solid #d97706;
+    border-radius:10px; background:#fff8e8; color:#7c3f00; font-size:18px; line-height:1.7;
+  }
+  .launch-warning a {
+    display:inline-block; margin-top:10px; padding:9px 16px; border-radius:6px;
+    background:#2d6cdf; color:#fff; text-decoration:none; font-weight:bold;
+  }
+
+  @page {
+    size: A4;
+    margin: 8mm;
+  }
+  @media print {
+    * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body { background:#fff; padding:0; }
+    .panel, .no-print { display:none !important; }
+    #sheet {
+      padding:1.5mm; max-width:none;
+      display:block;
+    }
+    .block {
+      margin-top:0;
+      break-inside:avoid;
+      page-break-inside:avoid;
+      vertical-align:top;
+    }
+    .cell, .info {
+      margin:0;
+      border:.55pt solid #111;
+      break-inside:avoid;
+      page-break-inside:avoid;
+    }
+    .info-item { border-bottom:.45pt solid #555; }
+    .info-item:last-child { border-bottom:0; }
+  }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+  <h1 class="no-print">台灣標準國字筆順字帖</h1>
+  <div class="sub no-print">輸入國字，自訂筆順提示、注音、部首及筆畫數，產生可列印的練習字帖。</div>
+
+  <div class="panel no-print">
+    <label>請輸入要練習的國字（會自動去除非中文字，重複字預設保留，適合練習姓名）</label>
+    <textarea id="charsInput" placeholder="例如：王大明">王大明</textarea>
+    <div class="row">
+      <div class="field"><label>範例列數</label><input type="number" id="exampleRows" value="3" min="1" max="6"></div>
+      <div class="field"><label>練習列數</label><input type="number" id="practiceRows" value="6" min="1" max="20"></div>
+      <div class="field"><label>格子大小(px)</label><input type="number" id="cellSize" value="100" min="60" max="180"></div>
+      <div class="field"><input type="checkbox" id="showNumbers" checked><label for="showNumbers" style="margin:0">顯示筆順數字</label></div>
+      <div class="field"><input type="checkbox" id="showArrows" checked><label for="showArrows" style="margin:0">顯示方向虛線</label></div>
+      <div class="field"><input type="checkbox" id="showZhuyin" checked><label for="showZhuyin" style="margin:0">注音＋練習框</label></div>
+      <div class="field"><input type="checkbox" id="showRadical" checked><label for="showRadical" style="margin:0">部首＋練習框</label></div>
+      <div class="field"><input type="checkbox" id="showCount" checked><label for="showCount" style="margin:0">筆畫數＋練習框</label></div>
+      <div class="field"><input type="checkbox" id="dashedGrid"><label for="dashedGrid" style="margin:0">虛線田字格</label></div>
+      <div class="field"><input type="checkbox" id="dedupe"><label for="dedupe" style="margin:0">去除重複字</label></div>
+      <button onclick="generate()">產生字帖</button>
+      <button class="secondary" onclick="window.print()">列印</button>
+    </div>
+    <div id="pronunciationPanel" class="pronunciation-panel"></div>
+    <div class="note">
+      <strong>使用方式</strong>
+      <ol>
+        <li>輸入要練習的國字，設定範例列、練習列和格子大小。</li>
+        <li>勾選需要的筆順數字、方向線、注音、部首或筆畫數。</li>
+        <li>多音字請確認讀音；姓名或特殊讀音可自行輸入。</li>
+        <li>按「產生字帖」預覽，完成後按「列印」。</li>
+      </ol>
+      <div class="source-note">
+        <strong>資料來源：</strong>
+        筆順來自<a href="https://stroke-order.learningweb.moe.edu.tw/index.jsp" target="_blank" rel="noopener">教育部《國字標準字體筆順學習網》</a>；
+        注音、部首與辭典筆畫數來自<a href="https://www.moedict.tw/about.html" target="_blank" rel="noopener">萌典</a>；
+        注音符號使用<a href="https://github.com/ButTaiwan/bpmfvs" target="_blank" rel="noopener">ButTaiwan GenyoMinBopomofo</a>（Apache 2.0）。
+        本工具供免費、非商業的教學與家庭學習使用，並非教育部或萌典官方產品；如有差異，以官方資料為準。
+      </div>
+    </div>
+  </div>
+
+  <div id="sheet"></div>
+
+</div>
+<script>
+const MOE_FRAME_URL = 'https://stroke-order.learningweb.moe.edu.tw/dictFrame.jsp?ID=';
+const MOEDICT_API = 'https://www.moedict.tw/uni/';
+const cache = {};
+const infoCache = {};
+const selectedBopomofo = {};
+const customBopomofo = {};
+let generationId = 0;
+
+// 部首在字裡實際出現時常見的簡省寫法（給旁邊資訊欄用，貼近字形本身）
+const RADICAL_VARIANTS = {
+  '阜':'阝', '邑':'阝', '水':'氵', '心':'忄', '手':'扌', '犬':'犭',
+  '衣':'衤', '示':'礻', '网':'罒', '老':'耂', '肉':'月', '刀':'刂',
+  '人':'亻', '火':'灬', '竹':'⺮', '艸':'艹', '辵':'辶', '言':'訁'
+};
+
+async function loadChar(char) {
+  if (Object.prototype.hasOwnProperty.call(cache, char)) return cache[char];
+  try {
+    const officialUrl = MOE_FRAME_URL + char.codePointAt(0);
+    const res = await fetch(officialUrl);
+    if (!res.ok) throw new Error('not found');
+    const html = await res.text();
+    const data = parseMoeStrokePage(html, char, officialUrl);
+    cache[char] = data;
+    return data;
+  } catch (e) {
+    cache[char] = null;
+    return null;
+  }
+}
+
+function numberAttribute(node, name) {
+  const value = Number(node.getAttribute(name));
+  if (!Number.isFinite(value)) throw new Error(`invalid ${name}`);
+  return Number.isInteger(value) ? String(value) : String(value);
+}
+
+function outlineToPath(outline) {
+  return [...outline.children].map(node => {
+    const tag = node.localName;
+    if (tag === 'MoveTo') return `M ${numberAttribute(node, 'x')} ${numberAttribute(node, 'y')}`;
+    if (tag === 'LineTo') return `L ${numberAttribute(node, 'x')} ${numberAttribute(node, 'y')}`;
+    if (tag === 'QuadTo') {
+      return `Q ${numberAttribute(node, 'x1')} ${numberAttribute(node, 'y1')} ${numberAttribute(node, 'x2')} ${numberAttribute(node, 'y2')}`;
+    }
+    if (tag === 'CubicTo' || tag === 'CurveTo') {
+      return `C ${numberAttribute(node, 'x1')} ${numberAttribute(node, 'y1')} ${numberAttribute(node, 'x2')} ${numberAttribute(node, 'y2')} ${numberAttribute(node, 'x3')} ${numberAttribute(node, 'y3')}`;
+    }
+    if (tag === 'Close') return 'Z';
+    return '';
+  }).filter(Boolean).join(' ');
+}
+
+function parseMoeStrokePage(html, char, officialUrl) {
+  const match = html.match(/var\s+xml\s*=\s*\{\s*\d+\s*:\s*("(?:\\.|[^"\\])*")\s*\}\s*;/s);
+  if (!match) throw new Error(`教育部沒有「${char}」的可用筆順資料`);
+
+  const xmlText = JSON.parse(match[1]);
+  const xml = new DOMParser().parseFromString(xmlText, 'application/xml');
+  if (xml.querySelector('parsererror')) throw new Error('筆順資料格式錯誤');
+  const root = xml.documentElement;
+  const strokes = [...root.getElementsByTagName('Stroke')].map(stroke => {
+    const outline = [...stroke.children].find(node => node.localName === 'Outline');
+    const track = [...stroke.children].find(node => node.localName === 'Track');
+    if (!outline) return null;
+    const points = track ? [...track.children]
+      .filter(point => point.hasAttribute('x') && point.hasAttribute('y'))
+      .map(point => [Number(point.getAttribute('x')), Number(point.getAttribute('y'))])
+      .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y)) : [];
+    return { outline: outlineToPath(outline), track: points };
+  }).filter(Boolean);
+
+  if (!strokes.length) throw new Error(`教育部沒有「${char}」的筆畫資料`);
+  return {
+    character: root.getAttribute('unicode') || char,
+    width: Number(root.getAttribute('x')) || 2048,
+    height: Number(root.getAttribute('y')) || 2048,
+    strokes,
+    source: '教育部國字標準字體筆順學習網',
+    officialUrl
+  };
+}
+
+async function loadInfo(char) {
+  if (infoCache[char]) return infoCache[char];
+  try {
+    const res = await fetch(MOEDICT_API + encodeURIComponent(char));
+    if (!res.ok) throw new Error('not found');
+    const data = await res.json();
+    const bopomofos = [...new Set((data.heteronyms || []).map(item => item.bopomofo).filter(Boolean))];
+    const radical = data.radical ? (RADICAL_VARIANTS[data.radical] || data.radical) : '';
+    const officialCount = typeof data.stroke_count === 'number' ? data.stroke_count : null;
+    const info = { bopomofos, radical, officialCount };
+    infoCache[char] = info;
+    return info;
+  } catch (e) {
+    infoCache[char] = { bopomofos: [], radical: '', officialCount: null };
+    return infoCache[char];
+  }
+}
+
+function strokeArrow(track) {
+  if (track.length < 2) return '';
+  const [x1, y1] = track[0];
+  const [x2, y2] = track[track.length - 1];
+  if (Math.hypot(x2 - x1, y2 - y1) < 30) return '';
+  const d = track.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`).join(' ');
+  const [px, py] = track[track.length - 2];
+  const angle = Math.atan2(y2 - py, x2 - px) * 180 / Math.PI;
+  return `
+    <path d="${d}" fill="none" stroke="#3188e8" stroke-width="20"
+      stroke-dasharray="30,24" opacity="0.92" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M 0 0 L -42 -21 L -42 21 Z" fill="#3188e8"
+      transform="translate(${x2}, ${y2}) rotate(${angle})" />
+  `;
+}
+
+function numberPosition(track, occupied) {
+  if (!track.length) return [80, 100];
+  const [x, y] = track[0];
+  const next = track[1] || [x + 1, y];
+  const dx = next[0] - x;
+  const dy = next[1] - y;
+  const length = Math.hypot(dx, dy) || 1;
+  const nx = -dy / length;
+  const ny = dx / length;
+  for (const offset of [0, 72, -72, 118, -118]) {
+    const candidate = [
+      Math.max(55, Math.min(1993, x + nx * offset)),
+      Math.max(80, Math.min(1970, y + ny * offset))
+    ];
+    if (occupied.every(([ox, oy]) => Math.hypot(candidate[0] - ox, candidate[1] - oy) > 92)) {
+      occupied.push(candidate);
+      return candidate;
+    }
+  }
+  const fallback = [x, y];
+  occupied.push(fallback);
+  return fallback;
+}
+
+function charSvg(data, showNumbers, showArrows) {
+  const strokes = data.strokes.map(stroke =>
+    `<path d="${stroke.outline}" fill="#fff" stroke="#111" stroke-width="22"
+      stroke-linejoin="round" stroke-linecap="round" />`
+  ).join('');
+
+  const arrows = showArrows ? data.strokes.map(stroke => strokeArrow(stroke.track || [])).join('') : '';
+
+  let numbers = '';
+  if (showNumbers) {
+    const occupied = [];
+    numbers = data.strokes.map((stroke, i) => {
+      const [x, y] = numberPosition(stroke.track || [], occupied);
+      return `
+        <text x="${x}" y="${y}" font-size="104" fill="#ef1111" text-anchor="middle"
+          dominant-baseline="central" font-family="Arial, sans-serif" font-weight="700">${i + 1}</text>
+      `;
+    }).join('');
+  }
+
+  return `<svg viewBox="0 0 2048 2048">${strokes}${arrows}${numbers}</svg>`;
+}
+
+function getBopomofo(char, info) {
+  return (customBopomofo[char] || '').trim()
+    || selectedBopomofo[char]
+    || (info.bopomofos && info.bopomofos[0])
+    || '';
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, char => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  })[char]);
+}
+
+function bopomofoHtml(value) {
+  const text = String(value || '').trim();
+  if (!text) return '—';
+  const neutral = text.includes('˙');
+  const toneMatch = text.match(/[ˊˇˋ˙]/);
+  const tone = toneMatch ? toneMatch[0] : '';
+  const hasSideTone = tone && !neutral;
+  const symbols = [...text.replace(/[ˊˇˋ˙\s]/g, '')];
+  if (!symbols.length) return escapeHtml(text);
+  const symbolHtml = symbols.map(symbol => `<span class="zhuyin-symbol">${escapeHtml(symbol)}</span>`).join('');
+  const toneHtml = tone
+    ? `<span class="zhuyin-tone${neutral ? ' neutral' : ''}">${escapeHtml(tone)}</span>`
+    : '';
+  return `<span class="zhuyin-stack${hasSideTone ? ' has-side-tone' : ''}">${symbolHtml}${toneHtml}</span>`;
+}
+
+function renderPronunciationControls(chars, infoByChar, enabled) {
+  const panel = document.getElementById('pronunciationPanel');
+  panel.innerHTML = '';
+  panel.classList.toggle('visible', enabled && chars.length > 0);
+  if (!enabled || !chars.length) return;
+
+  const title = document.createElement('div');
+  title.className = 'pronunciation-title';
+  title.textContent = '注音選擇（多音字請確認；姓名讀音可在右側自訂）';
+  panel.appendChild(title);
+  const list = document.createElement('div');
+  list.className = 'pronunciation-list';
+
+  chars.forEach(char => {
+    const info = infoByChar[char] || { bopomofos: [] };
+    const readings = info.bopomofos || [];
+    if (!selectedBopomofo[char] && readings[0]) selectedBopomofo[char] = readings[0];
+
+    const row = document.createElement('div');
+    row.className = 'pronunciation-row';
+    const charLabel = document.createElement('span');
+    charLabel.className = 'pronunciation-char';
+    charLabel.textContent = char;
+    row.appendChild(charLabel);
+
+    if (readings.length > 1) {
+      const select = document.createElement('select');
+      readings.forEach(reading => {
+        const option = document.createElement('option');
+        option.value = reading;
+        option.textContent = reading;
+        option.selected = reading === selectedBopomofo[char];
+        select.appendChild(option);
+      });
+      select.addEventListener('change', () => {
+        selectedBopomofo[char] = select.value;
+        generate();
+      });
+      row.appendChild(select);
+    } else {
+      const reading = document.createElement('span');
+      reading.textContent = readings[0] || '查無注音';
+      row.appendChild(reading);
+    }
+
+    const custom = document.createElement('input');
+    custom.type = 'text';
+    custom.placeholder = '自訂注音';
+    custom.value = customBopomofo[char] || '';
+    custom.addEventListener('change', () => {
+      customBopomofo[char] = custom.value;
+      generate();
+    });
+    row.appendChild(custom);
+    list.appendChild(row);
+  });
+  panel.appendChild(list);
+}
+
+async function generate() {
+  const thisGeneration = ++generationId;
+  const raw = document.getElementById('charsInput').value;
+  const dedupe = document.getElementById('dedupe').checked;
+  const rawChars = raw.match(/[一-鿿]/g) || [];
+  const chars = dedupe ? [...new Set(rawChars)] : rawChars;
+  document.title = chars.length ? chars.join('') + '筆順練習字帖' : '國字筆順練習字帖產生器';
+  const exampleRows = Math.max(1, parseInt(document.getElementById('exampleRows').value) || 3);
+  const practiceRows = Math.max(0, parseInt(document.getElementById('practiceRows').value) || 6);
+  const cellSize = parseInt(document.getElementById('cellSize').value) || 100;
+  const showNumbers = document.getElementById('showNumbers').checked;
+  const showArrows = document.getElementById('showArrows').checked;
+  const showZhuyin = document.getElementById('showZhuyin').checked;
+  const showRadical = document.getElementById('showRadical').checked;
+  const showCount = document.getElementById('showCount').checked;
+  const dashed = document.getElementById('dashedGrid').checked;
+  const hasInfoColumn = showZhuyin || showRadical || showCount;
+
+  document.documentElement.style.setProperty('--cell', cellSize + 'px');
+  document.documentElement.style.setProperty('--info', Math.round(cellSize * 0.28) + 'px');
+
+  const sheet = document.getElementById('sheet');
+  sheet.innerHTML = '<div class="no-print" style="padding:20px;color:#888;">產生中...</div>';
+
+  const uniqueChars = [...new Set(chars)];
+  const [strokeResults, infos] = await Promise.all([
+    Promise.all(uniqueChars.map(c => loadChar(c))),
+    Promise.all(uniqueChars.map(c => loadInfo(c)))
+  ]);
+  if (thisGeneration !== generationId) return;
+
+  const dataByChar = {};
+  const infoByChar = {};
+  uniqueChars.forEach((c, i) => {
+    dataByChar[c] = strokeResults[i];
+    infoByChar[c] = infos[i];
+  });
+  renderPronunciationControls(uniqueChars, infoByChar, showZhuyin);
+
+  const totalRows = exampleRows + practiceRows;
+  let html = '';
+
+  chars.forEach(char => {
+    const data = dataByChar[char];
+    const columns = hasInfoColumn ? 'var(--cell) var(--info)' : 'var(--cell)';
+    html += `<div class="block" style="grid-template-columns:${columns}; grid-template-rows:repeat(${totalRows}, var(--cell));">`;
+
+    const drawnCount = data ? data.strokes.length : null;
+    const info = infoByChar[char] || { bopomofos:[], radical:'', officialCount:null };
+    const { radical, officialCount } = info;
+    const bopomofo = getBopomofo(char, info);
+    const displayCount = drawnCount != null ? drawnCount : (officialCount != null ? officialCount : '-');
+    const mismatch = data && officialCount != null && officialCount !== drawnCount;
+    const mismatchTitle = mismatch
+      ? `教育部筆順資料共有 ${drawnCount} 筆，moedict 資訊為 ${officialCount} 劃；建議至官方網站核對「${char}」`
+      : '';
+    const infoCell = (row, isExample) => {
+      if (!hasInfoColumn) return '';
+      const mismatchClass = isExample && mismatch ? ' mismatch' : '';
+      const blankClass = isExample ? '' : ' blank';
+      const title = isExample && mismatch ? ` title="${mismatchTitle}"` : '';
+      const items = [
+        showZhuyin ? `<div class="info-item info-bopomofo">${isExample ? bopomofoHtml(bopomofo) : '&nbsp;'}</div>` : '',
+        showRadical ? `<div class="info-item info-radical">${isExample ? (radical || '—') : '&nbsp;'}</div>` : '',
+        showCount ? `<div class="info-item info-count">${isExample ? displayCount : '&nbsp;'}${isExample && mismatch ? '<span class="warn-mark">⚠</span>' : ''}</div>` : ''
+      ].join('');
+      return `<div class="info${blankClass}${mismatchClass}" style="grid-column:2;grid-row:${row};"${title}>${items}</div>`;
+    };
+
+    for (let r = 0; r < totalRows; r++) {
+      const isExample = r < exampleRows;
+      const cellClass = dashed ? 'cell dashed' : 'cell';
+      if (isExample && data) {
+        html += `<div class="${cellClass}" style="grid-column:1; grid-row:${r+1};">${charSvg(data, showNumbers, showArrows)}</div>`;
+      } else if (isExample && !data) {
+        html += `<div class="${cellClass}" style="grid-column:1; grid-row:${r+1};"><div class="missing">找不到「${char}」的筆順資料</div></div>`;
+      } else {
+        html += `<div class="${cellClass}" style="grid-column:1; grid-row:${r+1};"></div>`;
+      }
+      html += infoCell(r + 1, isExample);
+    }
+    html += `</div>`;
+  });
+
+  sheet.innerHTML = html || '<div class="no-print" style="padding:20px;color:#888;">請輸入國字</div>';
+}
+
+generate();
+</script>
+</body>
+</html>
