@@ -70,7 +70,7 @@
   .pronunciation-title { font-weight:bold; margin-bottom:10px; color:#234a7c; }
   .pronunciation-list { display:flex; flex-wrap:wrap; gap:10px 16px; }
   .pronunciation-row {
-    display:grid; grid-template-columns:auto minmax(95px, auto) 140px;
+    display:flex; flex-wrap:wrap;
     align-items:center; gap:8px; padding:8px 10px; background:#fff;
     border:1px solid #d9e4f2; border-radius:7px;
   }
@@ -78,6 +78,10 @@
   .pronunciation-row select, .pronunciation-row input {
     min-width:0; padding:6px 8px; border:1px solid #bbb; border-radius:5px;
     font-size:16px;
+  }
+  .stroke-count-choice {
+    display:flex; align-items:center; gap:6px; margin:0 0 0 6px;
+    color:#555; font-size:14px;
   }
 
   #sheet {
@@ -146,8 +150,6 @@
   .info-radical { font-size: calc(var(--cell) * 0.19); color:#333; }
   .info-count { font-size: calc(var(--cell) * 0.155); color:#c0392b; font-weight:bold; position:relative; }
   .info.blank .info-item { color:transparent; }
-  .info.mismatch { border-color:#e67e22; box-shadow: inset 0 0 0 2px #e67e22; cursor:help; }
-  .warn-mark { font-size: 0.5em; color:#e67e22; margin-left:2px; vertical-align:top; }
   .missing { display:flex; align-items:center; justify-content:center; font-size:11px; color:#c0392b; text-align:center; padding:4px;}
   .launch-warning {
     max-width:760px; margin:24px auto; padding:22px 24px; border:2px solid #d97706;
@@ -224,6 +226,7 @@
         <li>輸入要練習的國字，設定範例列、練習列和格子大小。</li>
         <li>勾選需要的筆順數字、方向線、注音、部首或筆畫數。</li>
         <li>多音字請確認讀音；姓名或特殊讀音可自行輸入。</li>
+        <li>筆畫數資料不同時，可在「資料選擇」中決定要顯示的來源。</li>
         <li>按「產生字帖」預覽，完成後按「列印」。</li>
       </ol>
       <div class="source-note">
@@ -250,6 +253,7 @@ const cache = {};
 const infoCache = {};
 const selectedBopomofo = {};
 const customBopomofo = {};
+const selectedStrokeCount = {};
 let generationId = 0;
 
 // 部首在字裡實際出現時常見的簡省寫法（給旁邊資訊欄用，貼近字形本身）
@@ -437,15 +441,23 @@ function bopomofoHtml(value) {
   return `<span class="zhuyin-stack${hasSideTone ? ' has-side-tone' : ''}">${symbolHtml}${toneHtml}</span>`;
 }
 
-function renderPronunciationControls(chars, infoByChar, enabled) {
+function renderDataControls(chars, infoByChar, dataByChar, showZhuyin, showCount) {
   const panel = document.getElementById('pronunciationPanel');
+  const hasCountChoice = showCount && chars.some(char => {
+    const drawnCount = dataByChar[char]?.strokes?.length;
+    const officialCount = infoByChar[char]?.officialCount;
+    return drawnCount != null && officialCount != null && drawnCount !== officialCount;
+  });
+  const enabled = showZhuyin || hasCountChoice;
   panel.innerHTML = '';
   panel.classList.toggle('visible', enabled && chars.length > 0);
   if (!enabled || !chars.length) return;
 
   const title = document.createElement('div');
   title.className = 'pronunciation-title';
-  title.textContent = '注音選擇（多音字請確認；姓名讀音可在右側自訂）';
+  title.textContent = hasCountChoice
+    ? '資料選擇（多音字與筆畫數不同時可在這裡調整）'
+    : '注音選擇（多音字請確認；姓名讀音可在右側自訂）';
   panel.appendChild(title);
   const list = document.createElement('div');
   list.className = 'pronunciation-list';
@@ -453,6 +465,10 @@ function renderPronunciationControls(chars, infoByChar, enabled) {
   chars.forEach(char => {
     const info = infoByChar[char] || { bopomofos: [] };
     const readings = info.bopomofos || [];
+    const drawnCount = dataByChar[char]?.strokes?.length;
+    const officialCount = info.officialCount;
+    const countDiffers = showCount && drawnCount != null && officialCount != null && drawnCount !== officialCount;
+    if (!showZhuyin && !countDiffers) return;
     if (!selectedBopomofo[char] && readings[0]) selectedBopomofo[char] = readings[0];
 
     const row = document.createElement('div');
@@ -462,7 +478,7 @@ function renderPronunciationControls(chars, infoByChar, enabled) {
     charLabel.textContent = char;
     row.appendChild(charLabel);
 
-    if (readings.length > 1) {
+    if (showZhuyin && readings.length > 1) {
       const select = document.createElement('select');
       readings.forEach(reading => {
         const option = document.createElement('option');
@@ -476,21 +492,48 @@ function renderPronunciationControls(chars, infoByChar, enabled) {
         generate();
       });
       row.appendChild(select);
-    } else {
+    } else if (showZhuyin) {
       const reading = document.createElement('span');
       reading.textContent = readings[0] || '查無注音';
       row.appendChild(reading);
     }
 
-    const custom = document.createElement('input');
-    custom.type = 'text';
-    custom.placeholder = '自訂注音';
-    custom.value = customBopomofo[char] || '';
-    custom.addEventListener('change', () => {
-      customBopomofo[char] = custom.value;
-      generate();
-    });
-    row.appendChild(custom);
+    if (showZhuyin) {
+      const custom = document.createElement('input');
+      custom.type = 'text';
+      custom.placeholder = '自訂注音';
+      custom.value = customBopomofo[char] || '';
+      custom.addEventListener('change', () => {
+        customBopomofo[char] = custom.value;
+        generate();
+      });
+      row.appendChild(custom);
+    }
+
+    if (countDiffers) {
+      if (selectedStrokeCount[char] == null) selectedStrokeCount[char] = drawnCount;
+      const label = document.createElement('label');
+      label.className = 'stroke-count-choice';
+      label.append('筆畫數顯示');
+      const select = document.createElement('select');
+      select.setAttribute('aria-label', `${char}的筆畫數顯示`);
+      [
+        { value: drawnCount, text: `${drawnCount}（教育部筆順）` },
+        { value: officialCount, text: `${officialCount}（萌典）` }
+      ].forEach(choice => {
+        const option = document.createElement('option');
+        option.value = String(choice.value);
+        option.textContent = choice.text;
+        option.selected = choice.value === selectedStrokeCount[char];
+        select.appendChild(option);
+      });
+      select.addEventListener('change', () => {
+        selectedStrokeCount[char] = Number(select.value);
+        generate();
+      });
+      label.appendChild(select);
+      row.appendChild(label);
+    }
     list.appendChild(row);
   });
   panel.appendChild(list);
@@ -533,7 +576,7 @@ async function generate() {
     dataByChar[c] = strokeResults[i];
     infoByChar[c] = infos[i];
   });
-  renderPronunciationControls(uniqueChars, infoByChar, showZhuyin);
+  renderDataControls(uniqueChars, infoByChar, dataByChar, showZhuyin, showCount);
 
   const totalRows = exampleRows + practiceRows;
   let html = '';
@@ -547,22 +590,18 @@ async function generate() {
     const info = infoByChar[char] || { bopomofos:[], radical:'', officialCount:null };
     const { radical, officialCount } = info;
     const bopomofo = getBopomofo(char, info);
-    const displayCount = drawnCount != null ? drawnCount : (officialCount != null ? officialCount : '-');
-    const mismatch = data && officialCount != null && officialCount !== drawnCount;
-    const mismatchTitle = mismatch
-      ? `教育部筆順資料共有 ${drawnCount} 筆，moedict 資訊為 ${officialCount} 劃；建議至官方網站核對「${char}」`
-      : '';
+    const displayCount = selectedStrokeCount[char] != null
+      ? selectedStrokeCount[char]
+      : (drawnCount != null ? drawnCount : (officialCount != null ? officialCount : '-'));
     const infoCell = (row, isExample) => {
       if (!hasInfoColumn) return '';
-      const mismatchClass = isExample && mismatch ? ' mismatch' : '';
       const blankClass = isExample ? '' : ' blank';
-      const title = isExample && mismatch ? ` title="${mismatchTitle}"` : '';
       const items = [
         showZhuyin ? `<div class="info-item info-bopomofo">${isExample ? bopomofoHtml(bopomofo) : '&nbsp;'}</div>` : '',
         showRadical ? `<div class="info-item info-radical">${isExample ? (radical || '—') : '&nbsp;'}</div>` : '',
-        showCount ? `<div class="info-item info-count">${isExample ? displayCount : '&nbsp;'}${isExample && mismatch ? '<span class="warn-mark">⚠</span>' : ''}</div>` : ''
+        showCount ? `<div class="info-item info-count">${isExample ? displayCount : '&nbsp;'}</div>` : ''
       ].join('');
-      return `<div class="info${blankClass}${mismatchClass}" style="grid-column:2;grid-row:${row};"${title}>${items}</div>`;
+      return `<div class="info${blankClass}" style="grid-column:2;grid-row:${row};">${items}</div>`;
     };
 
     for (let r = 0; r < totalRows; r++) {
