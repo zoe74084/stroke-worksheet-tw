@@ -243,7 +243,7 @@
   <div class="sub no-print">輸入國字，自訂筆順提示、注音、部首及筆畫數，產生可列印的練習字帖。</div>
 
   <div class="panel no-print">
-    <label>請輸入要練習的國字（會自動去除非中文字，重複字預設保留，適合練習姓名）</label>
+    <label>請輸入要練習的國字（會自動去除非中文字，重複字預設保留，適合練習姓名；可貼上多行、一行一位學生，搭配下方「多人姓名」選項各自換行或換頁）</label>
     <textarea id="charsInput" placeholder="例如：王大明">王大明</textarea>
     <div class="row">
       <div class="option-group">
@@ -283,6 +283,13 @@
           <div class="field"><input type="checkbox" id="dedupe"><label for="dedupe" style="margin:0">去除重複字</label></div>
         </div>
       </div>
+      <div class="option-group">
+        <div class="option-group-title">多人姓名（一行一位）</div>
+        <div class="option-group-body">
+          <div class="field"><input type="checkbox" id="lineBreak"><label for="lineBreak" style="margin:0">依行換行</label></div>
+          <div class="field"><input type="checkbox" id="pageBreak"><label for="pageBreak" style="margin:0">依行換頁</label></div>
+        </div>
+      </div>
       <div class="option-group" style="flex:2; min-width:300px;">
         <div class="option-group-title">頁首（列印顯示）</div>
         <div class="field"><input type="checkbox" id="showTitle"><label for="showTitle" style="margin:0">標題</label></div>
@@ -292,6 +299,7 @@
           <div class="field"><input type="checkbox" id="showSeat"><label for="showSeat" style="margin:0">座號</label></div>
           <div class="field"><input type="checkbox" id="showName"><label for="showName" style="margin:0">姓名</label></div>
         </div>
+        <div class="sub-field"><input type="text" id="classText" placeholder="例如：五年一班（留空則印出橫線讓學生自己填）" disabled></div>
         <div class="field"><input type="checkbox" id="showInstructions"><label for="showInstructions" style="margin:0">作業說明</label></div>
         <div class="sub-field"><textarea id="instructionsText" placeholder="例如：請依筆順練習，每個字至少寫三遍" disabled></textarea></div>
       </div>
@@ -749,14 +757,18 @@ function escapeHtml(value) {
   })[char]);
 }
 
-function buildHeaderHtml({ showTitle, titleText, showClass, showSeat, showName, showInstructions, instructionsText }) {
+function buildHeaderHtml({ showTitle, titleText, showClass, classText, showSeat, showName, showInstructions, instructionsText }, extraStyle = '') {
   const parts = [];
   if (showTitle && titleText.trim()) {
     parts.push(`<div class="sheet-title">${escapeHtml(titleText.trim())}</div>`);
   }
   if (showClass || showSeat || showName) {
     const fields = [
-      showClass ? `<span class="sheet-field">班級：<span class="fill-line"></span></span>` : '',
+      showClass
+        ? (classText && classText.trim()
+            ? `<span class="sheet-field">班級：${escapeHtml(classText.trim())}</span>`
+            : `<span class="sheet-field">班級：<span class="fill-line"></span></span>`)
+        : '',
       showSeat ? `<span class="sheet-field">座號：<span class="fill-line"></span></span>` : '',
       showName ? `<span class="sheet-field">姓名：<span class="fill-line"></span></span>` : ''
     ].join('');
@@ -766,7 +778,7 @@ function buildHeaderHtml({ showTitle, titleText, showClass, showSeat, showName, 
     parts.push(`<div class="sheet-instructions">${escapeHtml(instructionsText.trim())}</div>`);
   }
   if (!parts.length) return '';
-  return `<div class="sheet-header">${parts.join('')}</div>`;
+  return `<div class="sheet-header"${extraStyle ? ` style="${extraStyle}"` : ''}>${parts.join('')}</div>`;
 }
 
 function bopomofoHtml(value) {
@@ -848,8 +860,17 @@ async function generate() {
   const thisGeneration = ++generationId;
   const raw = document.getElementById('charsInput').value;
   const dedupe = document.getElementById('dedupe').checked;
-  const rawChars = raw.match(/[一-鿿]/g) || [];
-  const chars = dedupe ? [...new Set(rawChars)] : rawChars;
+  const lineBreak = document.getElementById('lineBreak').checked;
+  const pageBreak = document.getElementById('pageBreak').checked;
+  const grouping = lineBreak || pageBreak;
+  // 依行分組時，重複字去除只在「同一行（同一位學生）」內生效，避免學生 A 用過的字
+  // 害學生 B 的作業少一格；沒勾依行分組時，維持原本「整份輸入合併去重」的行為。
+  const lineGroups = raw.split(/\r?\n/)
+    .map(line => line.match(/[一-鿿]/g) || [])
+    .filter(lineChars => lineChars.length);
+  const dedupeGroup = g => dedupe ? [...new Set(g)] : g;
+  const groups = grouping ? lineGroups.map(dedupeGroup) : [dedupeGroup(lineGroups.flat())];
+  const chars = groups.flat();
   document.title = chars.length ? `台灣標準國字筆順字帖_${chars.join('')}` : '台灣標準國字筆順字帖';
   const exampleRows = Math.max(1, parseInt(document.getElementById('exampleRows').value) || 3);
   const practiceRows = Math.max(0, parseInt(document.getElementById('practiceRows').value) || 6);
@@ -864,6 +885,7 @@ async function generate() {
   const showTitle = document.getElementById('showTitle').checked;
   const titleText = document.getElementById('titleText').value;
   const showClass = document.getElementById('showClass').checked;
+  const classText = document.getElementById('classText').value;
   const showSeat = document.getElementById('showSeat').checked;
   const showName = document.getElementById('showName').checked;
   const showInstructions = document.getElementById('showInstructions').checked;
@@ -894,14 +916,14 @@ async function generate() {
   const totalRows = exampleRows + practiceRows;
   const columns = hasInfoColumn ? 'var(--cell) var(--info)' : 'var(--cell)';
 
-  const headerHtml = chars.length ? buildHeaderHtml({
-    showTitle, titleText, showClass, showSeat, showName, showInstructions, instructionsText
-  }) : '';
+  const headerConfig = { showTitle, titleText, showClass, classText, showSeat, showName, showInstructions, instructionsText };
+  const headerHtml = chars.length ? buildHeaderHtml(headerConfig) : '';
 
   // Measure the header's rendered height so the first page's row budget
   // below can be reduced by it — otherwise a tall header could push the
   // first chunk past the page and trigger the same cut-mid-row problem
-  // the pagination below exists to avoid.
+  // the pagination below exists to avoid. Every group repeats this same
+  // header (see the render loop), so one measurement covers them all.
   let headerHeightPx = 0;
   if (headerHtml) {
     sheet.innerHTML = headerHtml;
@@ -953,21 +975,37 @@ async function generate() {
     return cell + `<div class="info${blankClass}" style="grid-column:2;grid-row:${localRow};">${items}</div>`;
   }
 
-  let html = headerHtml;
+  let html = '';
+  let isFirstPage = true;
   if (chars.length) {
-    rowChunks.forEach(([start, end], chunkIndex) => {
-      const chunkRows = end - start;
-      html += `<div class="sheet-page"${chunkIndex > 0 ? ' style="page-break-before:always;"' : ''}>`;
-      chars.forEach(char => {
-        const data = dataByChar[char];
-        const info = infoByChar[char] || { bopomofos: [], radical: '' };
-        html += `<div class="block" style="grid-template-columns:${columns}; grid-template-rows:repeat(${chunkRows}, var(--cell));">`;
-        for (let r = start; r < end; r++) {
-          html += renderCell(char, data, info, r, r - start + 1);
+    // 每位學生（每組）各自重跑同一套分頁邏輯：組內超出一頁一律換頁（沿用原本的
+    // 版面限制），組與組之間的邊界只有勾選「依行換頁」時才強制換頁；否則交給
+    // .sheet-page 既有的 break-inside:avoid 讓瀏覽器自然排版，紙張允許時可以
+    // 同頁排下一位學生，只勾「依行換行」則至少會另起一組區塊、不會混在一起。
+    // 頁首（班級/座號/姓名等）也跟著每一組的第一頁重複出現，這樣依行換頁產生
+    // 的每一張才是可以直接單獨發下去的完整作業，不會只有第一位學生有頁首。
+    groups.forEach((groupChars, groupIndex) => {
+      if (!groupChars.length) return;
+      rowChunks.forEach(([start, end], chunkIndexInGroup) => {
+        const chunkRows = end - start;
+        const breakBefore = !isFirstPage && (chunkIndexInGroup > 0 || (groupIndex > 0 && pageBreak));
+        const showHeaderHere = chunkIndexInGroup === 0 && headerHtml;
+        if (showHeaderHere) {
+          html += buildHeaderHtml(headerConfig, breakBefore ? 'page-break-before:always;' : '');
         }
+        html += `<div class="sheet-page"${(!showHeaderHere && breakBefore) ? ' style="page-break-before:always;"' : ''}>`;
+        groupChars.forEach(char => {
+          const data = dataByChar[char];
+          const info = infoByChar[char] || { bopomofos: [], radical: '' };
+          html += `<div class="block" style="grid-template-columns:${columns}; grid-template-rows:repeat(${chunkRows}, var(--cell));">`;
+          for (let r = start; r < end; r++) {
+            html += renderCell(char, data, info, r, r - start + 1);
+          }
+          html += `</div>`;
+        });
         html += `</div>`;
+        isFirstPage = false;
       });
-      html += `</div>`;
     });
   }
 
@@ -982,6 +1020,7 @@ function syncFieldEnabled(checkboxId, fieldId) {
   apply();
 }
 syncFieldEnabled('showTitle', 'titleText');
+syncFieldEnabled('showClass', 'classText');
 syncFieldEnabled('showInstructions', 'instructionsText');
 
 generate();
