@@ -343,6 +343,62 @@ const RADICAL_VARIANTS = {
   '人':'亻', '火':'灬', '竹':'⺮', '艸':'艹', '辵':'辶', '言':'訁'
 };
 
+// 教育部沒有動畫資料、但字形是某個已收錄字裡未變形部件的字：
+// 從來源字擷取對應的筆畫範圍（0-based、含頭不含尾），重新置中放大。
+// 只適用於部件在合體字中完全沒有壓縮變形的情況，須逐字人工核對後才能加入。
+const DERIVED_CHARACTERS = {
+  '亘': { from: '宣', strokes: [3, 9] }
+};
+
+function transformOutline(d, scale, offsetX, offsetY) {
+  let i = 0;
+  return d.replace(/-?\d+(\.\d+)?/g, match => {
+    const value = Number(match) * scale + (i % 2 === 0 ? offsetX : offsetY);
+    i += 1;
+    return String(Math.round(value * 100) / 100);
+  });
+}
+
+function deriveCharData(sourceData, char, config) {
+  const [start, end] = config.strokes;
+  const subset = sourceData.strokes.slice(start, end);
+  if (!subset.length) return null;
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  subset.forEach(stroke => {
+    const nums = stroke.outline.match(/-?\d+(\.\d+)?/g).map(Number);
+    for (let i = 0; i < nums.length; i += 2) {
+      minX = Math.min(minX, nums[i]); maxX = Math.max(maxX, nums[i]);
+      minY = Math.min(minY, nums[i + 1]); maxY = Math.max(maxY, nums[i + 1]);
+    }
+  });
+
+  const targetSize = 1680;
+  const scale = targetSize / Math.max(maxX - minX, maxY - minY);
+  const offsetX = (2048 - (maxX - minX) * scale) / 2 - minX * scale;
+  const offsetY = (2048 - (maxY - minY) * scale) / 2 - minY * scale;
+
+  return {
+    character: char,
+    width: 2048,
+    height: 2048,
+    strokes: subset.map(stroke => ({
+      outline: transformOutline(stroke.outline, scale, offsetX, offsetY),
+      track: (stroke.track || []).map(([x, y]) => [x * scale + offsetX, y * scale + offsetY])
+    })),
+    source: `${sourceData.source}（由「${config.from}」推導）`,
+    officialUrl: sourceData.officialUrl
+  };
+}
+
+async function loadDerivedChar(char) {
+  const config = DERIVED_CHARACTERS[char];
+  if (!config) return null;
+  const sourceData = await loadChar(config.from);
+  if (!sourceData) return null;
+  return deriveCharData(sourceData, char, config);
+}
+
 async function loadChar(char) {
   if (Object.prototype.hasOwnProperty.call(cache, char)) return cache[char];
   try {
@@ -354,8 +410,9 @@ async function loadChar(char) {
     cache[char] = data;
     return data;
   } catch (e) {
-    cache[char] = null;
-    return null;
+    const derived = await loadDerivedChar(char);
+    cache[char] = derived;
+    return derived;
   }
 }
 
