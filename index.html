@@ -306,6 +306,7 @@
       <div class="row-actions">
         <button onclick="generate()">產生字帖</button>
         <button class="secondary" onclick="window.print()">列印</button>
+        <button class="secondary" onclick="clearInput()">清空</button>
       </div>
     </div>
     <div id="pronunciationPanel" class="pronunciation-panel"></div>
@@ -973,6 +974,12 @@ function renderPronunciationControls(chars, infoByChar, enabled) {
     list.appendChild(row);
   });
   panel.appendChild(list);
+}
+
+function clearInput() {
+  const input = document.getElementById('charsInput');
+  input.value = '';
+  input.focus();
 }
 
 async function generate() {
