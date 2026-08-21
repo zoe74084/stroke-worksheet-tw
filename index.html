@@ -345,31 +345,34 @@ const RADICAL_VARIANTS = {
 
 // 教育部沒有動畫資料、但字形是某個已收錄字裡未變形部件的字：
 // 1) extract：整個字就是來源字裡一段連續筆畫（0-based、含頭不含尾），重新置中放大。
-// 2) compose：換部首字——用來源字裡「部首槽位」的筆畫範圍當作定位框，把另一個
-//    獨立收錄的部首字縮放置入那個框，再接上來源字裡共用部件的筆畫（原位不變）。
+// 2) compose：換部首——先從一個「已經把這個部首當左偏旁使用」的合體字裡取出部首的
+//    壓縮筆畫當形狀參考（單獨字的比例跟當偏旁時完全不同，不能直接借用），再用另一個
+//    合體字的部首筆畫範圍當定位框，把形狀參考縮放貼進那個框，最後接上該合體字裡共用
+//    部件的筆畫（原位不變）。
 // 兩種都只適用於部件完全沒有被壓縮變形的情況，須逐字人工核對後才能加入。
 const DERIVED_CHARACTERS = {
   '亘': { from: '宣', strokes: [3, 9] },
   '嬛': {
-    radicalChar: '女',
+    radicalFrom: '好', radicalStrokes: [0, 3],
     slotSource: '環', slotStrokes: [0, 4],
     bodySource: '環', bodyStrokes: [4, 17]
   }
 };
 
-function transformOutline(d, scale, offsetX, offsetY) {
+function transformOutline(d, scaleX, scaleY, offsetX, offsetY) {
   let i = 0;
   return d.replace(/-?\d+(\.\d+)?/g, match => {
-    const value = Number(match) * scale + (i % 2 === 0 ? offsetX : offsetY);
+    const isX = i % 2 === 0;
+    const value = Number(match) * (isX ? scaleX : scaleY) + (isX ? offsetX : offsetY);
     i += 1;
     return String(Math.round(value * 100) / 100);
   });
 }
 
-function transformStroke(stroke, scale, offsetX, offsetY) {
+function transformStroke(stroke, scaleX, scaleY, offsetX, offsetY) {
   return {
-    outline: transformOutline(stroke.outline, scale, offsetX, offsetY),
-    track: (stroke.track || []).map(([x, y]) => [x * scale + offsetX, y * scale + offsetY])
+    outline: transformOutline(stroke.outline, scaleX, scaleY, offsetX, offsetY),
+    track: (stroke.track || []).map(([x, y]) => [x * scaleX + offsetX, y * scaleY + offsetY])
   };
 }
 
@@ -399,7 +402,7 @@ function deriveCharData(sourceData, char, config) {
     character: char,
     width: 2048,
     height: 2048,
-    strokes: subset.map(stroke => transformStroke(stroke, scale, offsetX, offsetY)),
+    strokes: subset.map(stroke => transformStroke(stroke, scale, scale, offsetX, offsetY)),
     source: `${sourceData.source}（由「${config.from}」推導）`,
     officialUrl: sourceData.officialUrl
   };
@@ -408,27 +411,32 @@ function deriveCharData(sourceData, char, config) {
 async function deriveComposedCharData(char, config) {
   const slotData = await loadChar(config.slotSource);
   const bodyData = config.bodySource === config.slotSource ? slotData : await loadChar(config.bodySource);
-  const radicalData = await loadChar(config.radicalChar);
-  if (!slotData || !bodyData || !radicalData) return null;
+  const radicalHostData = config.radicalFrom === config.slotSource ? slotData
+    : (config.radicalFrom === config.bodySource ? bodyData : await loadChar(config.radicalFrom));
+  if (!slotData || !bodyData || !radicalHostData) return null;
 
   const slotStrokes = slotData.strokes.slice(config.slotStrokes[0], config.slotStrokes[1]);
   const bodyStrokes = bodyData.strokes.slice(config.bodyStrokes[0], config.bodyStrokes[1]);
-  if (!slotStrokes.length || !bodyStrokes.length) return null;
+  const radicalStrokes = radicalHostData.strokes.slice(config.radicalStrokes[0], config.radicalStrokes[1]);
+  if (!slotStrokes.length || !bodyStrokes.length || !radicalStrokes.length) return null;
 
+  // 用另一個合體字裡「已經壓縮好」的部首當形狀參考，兩邊的偏旁槽位比例通常很接近，
+  // 直接用該框的寬高各自獨立縮放貼滿目標槽位，不用保留參考字本身的長寬比。
   const slotBox = getStrokesBbox(slotStrokes);
-  const radicalBox = getStrokesBbox(radicalData.strokes);
-  const scale = Math.min(slotBox.w / radicalBox.w, slotBox.h / radicalBox.h);
-  const offsetX = slotBox.minX + (slotBox.w - radicalBox.w * scale) / 2 - radicalBox.minX * scale;
-  const offsetY = slotBox.minY + (slotBox.h - radicalBox.h * scale) / 2 - radicalBox.minY * scale;
+  const radicalBox = getStrokesBbox(radicalStrokes);
+  const scaleX = slotBox.w / radicalBox.w;
+  const scaleY = slotBox.h / radicalBox.h;
+  const offsetX = slotBox.minX - radicalBox.minX * scaleX;
+  const offsetY = slotBox.minY - radicalBox.minY * scaleY;
 
-  const radicalTransformed = radicalData.strokes.map(s => transformStroke(s, scale, offsetX, offsetY));
+  const radicalTransformed = radicalStrokes.map(s => transformStroke(s, scaleX, scaleY, offsetX, offsetY));
 
   return {
     character: char,
     width: 2048,
     height: 2048,
     strokes: [...radicalTransformed, ...bodyStrokes],
-    source: `${bodyData.source}（由「${config.radicalChar}」＋「${config.bodySource}」推導）`,
+    source: `${bodyData.source}（由「${config.radicalFrom}」＋「${config.bodySource}」推導）`,
     officialUrl: bodyData.officialUrl
   };
 }
@@ -436,7 +444,7 @@ async function deriveComposedCharData(char, config) {
 async function loadDerivedChar(char) {
   const config = DERIVED_CHARACTERS[char];
   if (!config) return null;
-  if (config.radicalChar) return deriveComposedCharData(char, config);
+  if (config.radicalFrom) return deriveComposedCharData(char, config);
   const sourceData = await loadChar(config.from);
   if (!sourceData) return null;
   return deriveCharData(sourceData, char, config);
