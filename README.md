@@ -1,10 +1,10 @@
-# 台灣標準國字筆順字帖
+# 國字筆順字帖
 
 輸入國字後，可自訂筆順提示、注音、部首、筆畫數與練習格，產生可列印的國字練習字帖。
 
 ## 立即使用
 
-[開啟台灣標準國字筆順字帖](https://zoe74084.github.io/stroke-worksheet-tw/)
+[開啟國字筆順字帖](https://zoe74084.github.io/stroke-worksheet-tw/)
 
 ## 功能
 

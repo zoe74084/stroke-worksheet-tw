@@ -6,17 +6,17 @@
 <meta name="description" content="輸入國字，自訂筆順提示、注音、部首及筆畫數，產生可列印的練習字帖。">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="zh_TW">
-<meta property="og:title" content="台灣標準國字筆順練習字帖">
+<meta property="og:title" content="國字筆順練習字帖">
 <meta property="og:description" content="輸入國字・自訂格式・直接列印">
 <meta property="og:url" content="https://zoe74084.github.io/stroke-worksheet-tw/">
 <meta property="og:image" content="https://zoe74084.github.io/stroke-worksheet-tw/assets/social-preview.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="台灣標準國字筆順練習字帖">
+<meta property="og:image:alt" content="國字筆順練習字帖">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="canonical" href="https://zoe74084.github.io/stroke-worksheet-tw/">
 <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-<title>台灣標準國字筆順字帖</title>
+<title>國字筆順字帖</title>
 <style>
   @font-face {
     font-family:'WorksheetBopomofo';
@@ -239,7 +239,7 @@
 <body>
 <div class="page-wrap">
 
-  <h1 class="no-print">台灣標準國字筆順字帖</h1>
+  <h1 class="no-print">國字筆順字帖</h1>
   <div class="sub no-print">輸入國字，自訂筆順提示、注音、部首及筆畫數，產生可列印的練習字帖。</div>
 
   <div class="panel no-print">
@@ -1006,7 +1006,7 @@ function clearInput() {
   input.focus();
 }
 
-async function generate() {
+async function generate(updateTitle = true) {
   const thisGeneration = ++generationId;
   const raw = document.getElementById('charsInput').value;
   const dedupe = document.getElementById('dedupe').checked;
@@ -1021,7 +1021,9 @@ async function generate() {
   const dedupeGroup = g => dedupe ? [...new Set(g)] : g;
   const groups = grouping ? lineGroups.map(dedupeGroup) : [dedupeGroup(lineGroups.flat())];
   const chars = groups.flat();
-  document.title = chars.length ? `台灣標準國字筆順字帖_${chars.join('')}` : '台灣標準國字筆順字帖';
+  if (updateTitle) {
+    document.title = chars.length ? `國字筆順字帖_${chars.join('')}` : '國字筆順字帖';
+  }
   const exampleRows = Math.max(1, parseInt(document.getElementById('exampleRows').value) || 3);
   const practiceRows = Math.max(0, parseInt(document.getElementById('practiceRows').value) || 6);
   const cellSize = parseInt(document.getElementById('cellSize').value) || 100;
@@ -1173,7 +1175,7 @@ syncFieldEnabled('showTitle', 'titleText');
 syncFieldEnabled('showClass', 'classText');
 syncFieldEnabled('showInstructions', 'instructionsText');
 
-generate();
+generate(false);
 </script>
 <script data-goatcounter="https://zoe74084.goatcounter.com/count"
         async src="//gc.zgo.at/count.js"></script>
